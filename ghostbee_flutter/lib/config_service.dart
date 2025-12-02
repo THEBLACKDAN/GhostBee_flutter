@@ -5,7 +5,8 @@ class ConfigService {
   static String baseUrl = "";
 
   static Future<void> load() async {
-    final url = "https://raw.githubusercontent.com/THEBLACKDAN/GhostBee_flutter/main/ghostbee_flutter/config.json";
+    final url =
+        "https://raw.githubusercontent.com/THEBLACKDAN/GhostBee_flutter/refs/heads/main/ghostbee_flutter/config.json?token=GHSAT0AAAAAADQNU5ULQ75NTYX4V2ANWCFK2JONNUQ";
 
     final response = await http.get(Uri.parse(url));
 

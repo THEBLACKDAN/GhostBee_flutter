@@ -1,5 +1,6 @@
 import 'dart:convert';
-
+import './config_service.dart';
+import './constants.dart';
 import 'package:flutter/material.dart';
 import 'package:ghostbee_flutter/board_screen.dart';
 import 'package:ghostbee_flutter/chat_screen.dart';
@@ -13,7 +14,15 @@ import 'login_screen.dart'; // หน้า Login (หน้าแรกสุ�
 import 'club_room_screen.dart'; // หน้าห้อง Club
 import 'package:shared_preferences/shared_preferences.dart'; // <<< Import ใหม่
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // โหลด URL จาก GitHub
+  await ConfigService.load();
+
+  // อัปเดต baseUrl ให้ทั้งระบบ
+  AppConstants.baseUrl = ConfigService.baseUrl;
+
   runApp(const BeeTalkApp());
 }
 
@@ -25,35 +34,39 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
-  Widget _initialScreen = const Center(child: CircularProgressIndicator(color: Colors.amber)); 
+  Widget _initialScreen = const Center(
+    child: CircularProgressIndicator(color: Colors.amber),
+  );
 
   @override
   void initState() {
     super.initState();
-    _checkLoginStatus(); 
+    _checkLoginStatus();
   }
 
   Future<void> _checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getInt('userId'); 
-
-    
+    final userId = prefs.getInt('userId');
 
     if (!mounted) return;
 
     if (userId != null) {
       // 1. ถ้ามี ID (เคย Login แล้ว) -> ดึงข้อมูล User ที่สมบูรณ์
       try {
-        final response = await http.get(Uri.parse('$baseUrl/user/$userId')); // <<< เรียก API ใหม่
-        
+        final response = await http.get(
+          Uri.parse('${AppConstants.baseUrl}/user/$userId'),
+        ); // <<< เรียก API ใหม่
+
         if (response.statusCode == 200) {
           // ดึงข้อมูล User และสร้าง User Object ที่สมบูรณ์
           final data = jsonDecode(response.body);
-          final user = User.fromJson(data['user']); 
+          final user = User.fromJson(data['user']);
           SocketService().initialize(user.id);
           if (mounted) {
             setState(() {
-              _initialScreen = MainScreen(user: user); // ไป MainScreen พร้อม User Object จริง
+              _initialScreen = MainScreen(
+                user: user,
+              ); // ไป MainScreen พร้อม User Object จริง
             });
           }
         } else {
@@ -74,7 +87,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
           });
         }
       }
-      
     } else {
       // 4. ถ้าไม่มี ID (ยังไม่เคย Login) -> ไป LoginScreen
       setState(() {
@@ -88,6 +100,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
     return _initialScreen;
   }
 }
+
 class BeeTalkApp extends StatelessWidget {
   const BeeTalkApp({super.key});
 
@@ -170,7 +183,10 @@ class _MainScreenState extends State<MainScreen> {
             icon: Icon(Icons.chat_bubble),
             label: 'Chats',
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.book_rounded), label: 'Board'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.book_rounded),
+            label: 'Board',
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.group_work), label: 'Clubs'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Me'),
         ],
@@ -209,7 +225,9 @@ class _ChatPlaceholderState extends State<ChatPlaceholder> {
 
   Future<void> _fetchFriends() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/friends/${widget.user.id}'));
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/friends/${widget.user.id}'),
+      );
       if (response.statusCode == 200) {
         setState(() {
           _friends = jsonDecode(response.body);
@@ -225,7 +243,7 @@ class _ChatPlaceholderState extends State<ChatPlaceholder> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
-    
+
     if (_friends.isEmpty) {
       return const Center(
         child: Column(
@@ -234,7 +252,10 @@ class _ChatPlaceholderState extends State<ChatPlaceholder> {
             Icon(Icons.sentiment_dissatisfied, size: 50, color: Colors.grey),
             SizedBox(height: 10),
             Text("No friends yet.", style: TextStyle(color: Colors.grey)),
-            Text("Go to 'New Friends' in Me tab to accept requests.", style: TextStyle(fontSize: 10, color: Colors.grey)),
+            Text(
+              "Go to 'New Friends' in Me tab to accept requests.",
+              style: TextStyle(fontSize: 10, color: Colors.grey),
+            ),
           ],
         ),
       );
@@ -247,62 +268,85 @@ class _ChatPlaceholderState extends State<ChatPlaceholder> {
         int unread = friend['unread_count'] ?? 0;
         return Container(
           decoration: const BoxDecoration(
-             border: Border(bottom: BorderSide(color: Colors.black12))
+            border: Border(bottom: BorderSide(color: Colors.black12)),
           ),
           child: ListTile(
             tileColor: Colors.white,
             leading: Stack(
               children: [
                 CircleAvatar(
-                  backgroundColor: friend['gender'] == 'male' ? Colors.blue[100] : Colors.pink[100],
+                  backgroundColor:
+                      friend['gender'] == 'male'
+                          ? Colors.blue[100]
+                          : Colors.pink[100],
                   // ถ้ามีรูปโปรไฟล์ก็โชว์ (เผื่อไว้)
-                  backgroundImage: friend['image'] != null && friend['image'].toString().startsWith('http')
-                      ? NetworkImage(friend['image'])
-                      : null,
-                  child: (friend['image'] == null || !friend['image'].toString().startsWith('http'))
-                      ? Icon(Icons.person, color: friend['gender'] == 'male' ? Colors.blue : Colors.pink)
-                      : null,
+                  backgroundImage:
+                      friend['image'] != null &&
+                              friend['image'].toString().startsWith('http')
+                          ? NetworkImage(friend['image'])
+                          : null,
+                  child:
+                      (friend['image'] == null ||
+                              !friend['image'].toString().startsWith('http'))
+                          ? Icon(
+                            Icons.person,
+                            color:
+                                friend['gender'] == 'male'
+                                    ? Colors.blue
+                                    : Colors.pink,
+                          )
+                          : null,
                 ),
                 // (ถ้าอยากใส่ Online Dot ก็ใส่ตรงนี้ได้)
               ],
             ),
-            
-            title: Text(
-              friend['display_name'], 
-              style: const TextStyle(fontWeight: FontWeight.bold)
-            ),
-            
-            subtitle: const Text("Tap to chat", style: TextStyle(fontSize: 12, color: Colors.grey)),
-            
-            // ✨✨✨ เพิ่มส่วนนี้: จุดแดงแจ้งเตือน ✨✨✨
-            trailing: unread > 0
-                ? Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      unread.toString(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  )
-                : const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-            // ✨✨✨ จบส่วนแก้ไข ✨✨✨
 
+            title: Text(
+              friend['display_name'],
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+
+            subtitle: const Text(
+              "Tap to chat",
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+
+            // ✨✨✨ เพิ่มส่วนนี้: จุดแดงแจ้งเตือน ✨✨✨
+            trailing:
+                unread > 0
+                    ? Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        unread.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    )
+                    : const Icon(
+                      Icons.arrow_forward_ios,
+                      size: 16,
+                      color: Colors.grey,
+                    ),
+
+            // ✨✨✨ จบส่วนแก้ไข ✨✨✨
             onTap: () async {
               // กดแล้วไปหน้า ChatScreen
               await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ChatScreen(currentUser: widget.user, friend: friend),
+                  builder:
+                      (context) =>
+                          ChatScreen(currentUser: widget.user, friend: friend),
                 ),
               );
-              
+
               // 🔄 เมื่อกลับออกมาจากหน้าแชท ให้โหลดข้อมูลใหม่ (เพื่อให้เลขแดงๆ หายไป)
               _fetchFriends();
             },
@@ -310,9 +354,5 @@ class _ChatPlaceholderState extends State<ChatPlaceholder> {
         );
       },
     );
-      
-      
-    
   }
 }
-

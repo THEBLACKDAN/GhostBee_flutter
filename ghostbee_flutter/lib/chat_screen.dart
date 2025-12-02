@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:async'; 
-import 'package:intl/intl.dart'; 
+import 'dart:async';
+import 'package:intl/intl.dart';
 import './models/user.dart';
 import 'constants.dart';
 import 'socket_service.dart';
@@ -53,7 +53,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _markMessagesAsRead() async {
     try {
       await http.put(
-        Uri.parse('$baseUrl/messages/mark-read'),
+        Uri.parse('${AppConstants.baseUrl}/messages/mark-read'),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "sender_id": widget.friend['id'],
@@ -69,7 +69,8 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       final response = await http.get(
         Uri.parse(
-            '$baseUrl/messages/${widget.currentUser.id}/${widget.friend['id']}'),
+          '${AppConstants.baseUrl}/messages/${widget.currentUser.id}/${widget.friend['id']}',
+        ),
       );
 
       if (response.statusCode == 200) {
@@ -129,15 +130,16 @@ class _ChatScreenState extends State<ChatScreen> {
       if (data['readerId'] == widget.friend['id'] &&
           data['senderId'] == widget.currentUser.id) {
         setState(() {
-          _messages = _messages.map((msg) {
-            if (msg['sender_id'] == widget.currentUser.id &&
-                msg['is_read'] != true) {
-              final newMsg = Map<String, dynamic>.from(msg);
-              newMsg['is_read'] = true;
-              return newMsg;
-            }
-            return msg;
-          }).toList();
+          _messages =
+              _messages.map((msg) {
+                if (msg['sender_id'] == widget.currentUser.id &&
+                    msg['is_read'] != true) {
+                  final newMsg = Map<String, dynamic>.from(msg);
+                  newMsg['is_read'] = true;
+                  return newMsg;
+                }
+                return msg;
+              }).toList();
         });
       }
     });
@@ -282,29 +284,34 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             child: Text(
               msg['content'],
-              style:
-                  TextStyle(color: isMe ? Colors.white : Colors.black87),
+              style: TextStyle(color: isMe ? Colors.white : Colors.black87),
             ),
           ),
           Padding(
             padding: EdgeInsets.only(
-                left: isMe ? 0 : 10, right: isMe ? 10 : 0, bottom: 15),
+              left: isMe ? 0 : 10,
+              right: isMe ? 10 : 0,
+              bottom: 15,
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(timeStr,
-                    style:
-                        const TextStyle(fontSize: 10, color: Colors.black54)),
+                Text(
+                  timeStr,
+                  style: const TextStyle(fontSize: 10, color: Colors.black54),
+                ),
                 const SizedBox(width: 4),
                 if (isMe)
                   isRead
-                      ? const Text("seen",
-                          style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.blue,
-                              fontWeight: FontWeight.bold))
-                      : const Icon(Icons.done,
-                          size: 14, color: Colors.black45),
+                      ? const Text(
+                        "seen",
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                      : const Icon(Icons.done, size: 14, color: Colors.black45),
               ],
             ),
           ),
@@ -334,9 +341,10 @@ class _ChatScreenState extends State<ChatScreen> {
             child: const Text(
               "Typing...",
               style: TextStyle(
-                  color: Colors.black54,
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic),
+                color: Colors.black54,
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+              ),
             ),
           ),
         ],
@@ -363,18 +371,21 @@ class _ChatScreenState extends State<ChatScreen> {
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(widget.friend['display_name'],
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold)),
               Text(
-                _friendTypingStatus.isEmpty
-                    ? 'Online'
-                    : _friendTypingStatus,
+                widget.friend['display_name'],
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                _friendTypingStatus.isEmpty ? 'Online' : _friendTypingStatus,
                 style: TextStyle(
                   fontSize: 12,
-                  color: _friendTypingStatus.isEmpty
-                      ? Colors.white70
-                      : Colors.lightGreenAccent,
+                  color:
+                      _friendTypingStatus.isEmpty
+                          ? Colors.white70
+                          : Colors.lightGreenAccent,
                 ),
               ),
             ],
@@ -387,20 +398,22 @@ class _ChatScreenState extends State<ChatScreen> {
         body: Column(
           children: [
             Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.only(top: 10),
-                      itemCount: _messages.length +
-                          (_friendTypingStatus == 'typing...' ? 1 : 0),
-                      itemBuilder: (ctx, i) {
-                        if (i == _messages.length) {
-                          return _buildTypingIndicator();
-                        }
-                        return _buildMessage(_messages[i]);
-                      },
-                    ),
+              child:
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.only(top: 10),
+                        itemCount:
+                            _messages.length +
+                            (_friendTypingStatus == 'typing...' ? 1 : 0),
+                        itemBuilder: (ctx, i) {
+                          if (i == _messages.length) {
+                            return _buildTypingIndicator();
+                          }
+                          return _buildMessage(_messages[i]);
+                        },
+                      ),
             ),
 
             // ---------------------------
@@ -413,8 +426,10 @@ class _ChatScreenState extends State<ChatScreen> {
                 children: [
                   // ⭐ ปุ่มเปิด emoji picker
                   IconButton(
-                    icon: const Icon(Icons.emoji_emotions_outlined,
-                        color: Colors.amber),
+                    icon: const Icon(
+                      Icons.emoji_emotions_outlined,
+                      color: Colors.amber,
+                    ),
                     onPressed: () {
                       FocusScope.of(context).unfocus();
                       setState(() => _emojiShowing = !_emojiShowing);
@@ -441,7 +456,9 @@ class _ChatScreenState extends State<ChatScreen> {
                         filled: true,
                         fillColor: Colors.white,
                         contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 15, vertical: 10),
+                          horizontal: 15,
+                          vertical: 10,
+                        ),
                       ),
                     ),
                   ),

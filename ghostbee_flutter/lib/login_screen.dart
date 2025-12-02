@@ -37,7 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       try {
         final response = await http.post(
-          Uri.parse('$baseUrl/login'),
+          Uri.parse('${AppConstants.baseUrl}/login'),
           headers: {"Content-Type": "application/json; charset=UTF-8"},
           body: jsonEncode({"username": username, "password": password}),
         );

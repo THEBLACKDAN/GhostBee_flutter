@@ -6,14 +6,14 @@ import 'dart:convert';
 import 'package:intl/intl.dart'; // สำหรับจัดรูปแบบเวลา
 import 'constants.dart';
 import './models/user.dart';
-import 'club_room_screen.dart'; 
+import 'club_room_screen.dart';
 
 // ---------------------------------------------------------
 // ClubListScreen (แทน ClubPlaceholder เดิม)
 // หน้าสำหรับแสดงรายการ Club และปุ่มสร้าง Club
 // ---------------------------------------------------------
 class ClubListScreen extends StatefulWidget {
-  final User currentUser; 
+  final User currentUser;
   const ClubListScreen({super.key, required this.currentUser});
 
   @override
@@ -29,12 +29,14 @@ class _ClubListScreenState extends State<ClubListScreen> {
     super.initState();
     _fetchClubs(); // ดึงข้อมูล Club ตั้งแต่ต้น
   }
-  
+
   // ฟังก์ชันดึง Club ทั้งหมดจาก Server
   Future<void> _fetchClubs() async {
     setState(() => _isLoading = true);
     try {
-      final response = await http.get(Uri.parse('$baseUrl/clubs'));
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/clubs'),
+      );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -44,7 +46,10 @@ class _ClubListScreenState extends State<ClubListScreen> {
         });
       } else {
         setState(() => _isLoading = false);
-        _showSnackbar("Failed to load clubs: ${response.statusCode}", isError: true);
+        _showSnackbar(
+          "Failed to load clubs: ${response.statusCode}",
+          isError: true,
+        );
       }
     } catch (e) {
       setState(() => _isLoading = false);
@@ -59,7 +64,7 @@ class _ClubListScreenState extends State<ClubListScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/clubs'),
+        Uri.parse('${AppConstants.baseUrl}/clubs'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'clubName': clubName,
@@ -71,13 +76,15 @@ class _ClubListScreenState extends State<ClubListScreen> {
         final data = json.decode(response.body);
         final newClub = data['club'];
         _showSnackbar("Club '${newClub['name']}' created!", isError: false);
-        
-        await _fetchClubs(); // อัปเดตรายการ Club
-        
-        _navigateToClubRoom(newClub); // พาเข้าห้องที่เพิ่งสร้างทันที
 
+        await _fetchClubs(); // อัปเดตรายการ Club
+
+        _navigateToClubRoom(newClub); // พาเข้าห้องที่เพิ่งสร้างทันที
       } else {
-        _showSnackbar("Failed to create club: ${response.statusCode}", isError: true);
+        _showSnackbar(
+          "Failed to create club: ${response.statusCode}",
+          isError: true,
+        );
       }
     } catch (e) {
       _showSnackbar("Network Error creating club: $e", isError: true);
@@ -91,45 +98,47 @@ class _ClubListScreenState extends State<ClubListScreen> {
     final TextEditingController controller = TextEditingController();
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Create New Club"),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: "Enter club name"),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("Cancel"),
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text("Create New Club"),
+            content: TextField(
+              controller: controller,
+              decoration: const InputDecoration(hintText: "Enter club name"),
+              autofocus: true,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  if (controller.text.trim().isNotEmpty) {
+                    _createClub(controller.text.trim());
+                  }
+                },
+                child: const Text("Create"),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.trim().isNotEmpty) {
-                _createClub(controller.text.trim());
-              }
-            },
-            child: const Text("Create"),
-          ),
-        ],
-      ),
     );
   }
-  
+
   // Helper: Navigation
   void _navigateToClubRoom(Map<String, dynamic> club) {
-     Navigator.push(
+    Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ClubRoomScreen(
-          currentUser: widget.currentUser,
-          clubId: club['id'],
-          clubName: club['name'],
-          
-          // <<< เพิ่ม ARGUMENTS ที่ขาดหายไป 2 ตัวนี้ >>>
-          ownerId: club['ownerId'], // ⚠️ Club owner ID
-          onClubEnd: _fetchClubs, // ⚠️ Callback function (_fetchClubs)
-        ),
+        builder:
+            (context) => ClubRoomScreen(
+              currentUser: widget.currentUser,
+              clubId: club['id'],
+              clubName: club['name'],
+
+              // <<< เพิ่ม ARGUMENTS ที่ขาดหายไป 2 ตัวนี้ >>>
+              ownerId: club['ownerId'], // ⚠️ Club owner ID
+              onClubEnd: _fetchClubs, // ⚠️ Callback function (_fetchClubs)
+            ),
       ),
     );
   }
@@ -144,7 +153,7 @@ class _ClubListScreenState extends State<ClubListScreen> {
       );
     }
   }
-  
+
   // ----------------------------------------------------
   // BUILD METHOD
   // ----------------------------------------------------
@@ -156,14 +165,17 @@ class _ClubListScreenState extends State<ClubListScreen> {
         child: CircularProgressIndicator(color: Colors.amber),
       );
     }
-    
+
     // ถ้าไม่มี Club ให้แสดงข้อความ
     if (_clubs.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text("No active clubs. Create one!", style: TextStyle(fontSize: 16, color: Colors.grey)),
+            const Text(
+              "No active clubs. Create one!",
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
             const SizedBox(height: 10),
             ElevatedButton.icon(
               onPressed: _showCreateClubDialog,
@@ -175,7 +187,7 @@ class _ClubListScreenState extends State<ClubListScreen> {
         ),
       );
     }
-    
+
     // ถ้ามี Club
     return Scaffold(
       body: RefreshIndicator(
@@ -191,14 +203,23 @@ class _ClubListScreenState extends State<ClubListScreen> {
           itemCount: _clubs.length,
           itemBuilder: (ctx, i) {
             final club = _clubs[i];
-            
+
             // Helper: คำนวณเวลาที่เหลือ
             final expiryTime = DateTime.parse(club['expires_at']);
             final timeRemaining = expiryTime.difference(DateTime.now());
-            final minutes = timeRemaining.inMinutes.remainder(60).toString().padLeft(2, '0');
-            final seconds = timeRemaining.inSeconds.remainder(60).toString().padLeft(2, '0');
-            final timeString = timeRemaining.inSeconds > 0 ? "$minutes:$seconds" : "Closing...";
-            
+            final minutes = timeRemaining.inMinutes
+                .remainder(60)
+                .toString()
+                .padLeft(2, '0');
+            final seconds = timeRemaining.inSeconds
+                .remainder(60)
+                .toString()
+                .padLeft(2, '0');
+            final timeString =
+                timeRemaining.inSeconds > 0
+                    ? "$minutes:$seconds"
+                    : "Closing...";
+
             return GestureDetector(
               onTap: () => _navigateToClubRoom(club),
               child: Container(
@@ -222,7 +243,7 @@ class _ClubListScreenState extends State<ClubListScreen> {
                           top: Radius.circular(12),
                         ),
                         child: Image.network(
-                          "https://i.pravatar.cc/150?img=${club['id'] % 25}", 
+                          "https://i.pravatar.cc/150?img=${club['id'] % 25}",
                           fit: BoxFit.cover,
                         ),
                       ),

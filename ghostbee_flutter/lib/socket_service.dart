@@ -24,9 +24,10 @@ class SocketService {
 
     try {
       socket = IO.io(
-        baseUrl,
-        IO.OptionBuilder().setTransports(['websocket']).build(),
-      );
+  AppConstants.baseUrl,
+  IO.OptionBuilder().setTransports(['websocket']).build(),
+);
+
       socket.connect();
 
       socket.onConnect((_) {

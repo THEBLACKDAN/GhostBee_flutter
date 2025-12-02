@@ -56,7 +56,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   Future<void> _fetchComments() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/comments/${widget.post['id']}'),
+        Uri.parse('${AppConstants.baseUrl}/comments/${widget.post['id']}'),
       );
       if (response.statusCode == 200) {
         setState(() {
@@ -99,7 +99,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
     if (confirm) {
       try {
-        await http.delete(Uri.parse('$baseUrl/posts/${widget.post['id']}'));
+        await http.delete(
+          Uri.parse('${AppConstants.baseUrl}/posts/${widget.post['id']}'),
+        );
 
         if (!mounted) return;
 
@@ -120,7 +122,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
     try {
       await http.post(
-        Uri.parse('$baseUrl/comments'),
+        Uri.parse('${AppConstants.baseUrl}/comments'),
         headers: {
           "Content-Type": "application/json; charset=UTF-8",
         }, // รองรับภาษาไทย
@@ -139,7 +141,6 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     }
   }
 
-
   void _showCommentOptions(Map<String, dynamic> comment) {
     // เช็คว่าเป็นคอมเมนต์เราเองหรือเปล่า (ถ้าใช่ ไม่โชว์ปุ่ม Add Friend)
     bool isMe = comment['user_id'] == widget.currentUser.id;
@@ -154,9 +155,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           mainAxisSize: MainAxisSize.min, // ขนาดพอดีเนื้อหา
           children: [
             const SizedBox(height: 10),
-            Container(width: 40, height: 4, color: Colors.grey[300]), // ขีดเล็กๆ
+            Container(
+              width: 40,
+              height: 4,
+              color: Colors.grey[300],
+            ), // ขีดเล็กๆ
             const SizedBox(height: 10),
-            
+
             // เมนู 1: Copy
             ListTile(
               leading: const Icon(Icons.copy),
@@ -178,10 +183,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 title: const Text("Add Friend"),
                 onTap: () {
                   Navigator.pop(context); // ปิดเมนู
-                  _sendFriendRequest(comment['user_id']); // เรียกฟังก์ชันส่งคำขอ
+                  _sendFriendRequest(
+                    comment['user_id'],
+                  ); // เรียกฟังก์ชันส่งคำขอ
                 },
               ),
-            
+
             const SizedBox(height: 20),
           ],
         );
@@ -192,7 +199,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   Future<void> _sendFriendRequest(int receiverId) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/friend-request'),
+        Uri.parse('${AppConstants.baseUrl}/friend-request'),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "sender_id": widget.currentUser.id,
@@ -204,7 +211,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
       if (response.statusCode == 201) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Friend request sent!"), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text("Friend request sent!"),
+            backgroundColor: Colors.green,
+          ),
         );
       } else if (response.statusCode == 409) {
         // กรณีขอไปแล้ว หรือเป็นเพื่อนกันแล้ว
@@ -214,13 +224,17 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Failed to send request"), backgroundColor: Colors.red),
+          const SnackBar(
+            content: Text("Failed to send request"),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } catch (e) {
       print("Add friend error: $e");
     }
   }
+
   @override
   Widget build(BuildContext context) {
     // เช็คว่าเป็นเจ้าของโพสต์หรือไม่?
@@ -319,18 +333,34 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   child: ListTile(
                     // ⚠️ เพิ่ม onLongPress ตรงนี้
                     onLongPress: () => _showCommentOptions(comment),
-                    
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     leading: CircleAvatar(
                       radius: 16,
                       // ใช้ trick เดิมแสดงสีตามเพศ (ถ้าข้อมูล comment join gender มาแล้ว ถ้ายังไม่มีใน API comments ให้แก้ API ก่อนนะครับ หรือจะใส่เป็นสีเทาไปก่อนก็ได้)
-                      backgroundColor: Colors.grey[200], 
-                      child: const Icon(Icons.person, size: 16, color: Colors.grey),
+                      backgroundColor: Colors.grey[200],
+                      child: const Icon(
+                        Icons.person,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
                     ),
-                    title: Text(comment['display_name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    title: Text(
+                      comment['display_name'],
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
                     subtitle: Padding(
                       padding: const EdgeInsets.only(top: 4),
-                      child: Text(comment['content'], style: const TextStyle(color: Colors.black87)),
+                      child: Text(
+                        comment['content'],
+                        style: const TextStyle(color: Colors.black87),
+                      ),
                     ),
                   ),
                 );

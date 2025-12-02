@@ -26,7 +26,9 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
   Future<void> _fetchRequests() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/friend-requests/${widget.currentUser.id}'),
+        Uri.parse(
+          '${AppConstants.baseUrl}/friend-requests/${widget.currentUser.id}',
+        ),
       );
       if (response.statusCode == 200) {
         setState(() {
@@ -44,7 +46,7 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
   Future<void> _respond(int requestId, String action) async {
     try {
       await http.put(
-        Uri.parse('$baseUrl/respond-request'),
+        Uri.parse('${AppConstants.baseUrl}/respond-request'),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"request_id": requestId, "action": action}),
       );

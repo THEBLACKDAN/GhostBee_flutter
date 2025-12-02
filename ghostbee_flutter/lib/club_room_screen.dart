@@ -50,11 +50,7 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
   late StreamSubscription<Map<String, dynamic>> _clubStreamSubscription;
 
   // --- Stage Data ---
-  List<Map<String, dynamic>?> stageSlots = [
-    null,
-    null,
-    null,
-  ];
+  List<Map<String, dynamic>?> stageSlots = [null, null, null];
 
   // 🆕 [WebRTC]: Map เก็บ Peer Connections สำหรับการพูด/ฟัง
   final Map<int, RTCPeerConnection> _peerConnections = {};
@@ -72,12 +68,13 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
   final Map<String, dynamic> _iceServers = {
     'iceServers': [
       {'url': 'stun:stun.l.google.com:19302'},
-    ]
+    ],
   };
 
   // List สำหรับ Listener (คนที่ไม่ได้อยู่บน Stage)
   List<Map<String, dynamic>> get _listeners {
-    final onStageIds = stageSlots.where((s) => s != null).map((s) => s!['id']).toSet();
+    final onStageIds =
+        stageSlots.where((s) => s != null).map((s) => s!['id']).toSet();
 
     // กรองสมาชิกทั้งหมดออกด้วย ID ที่อยู่บน Stage
     return _allMembers
@@ -86,8 +83,8 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
   }
 
   bool get amIOnStage => stageSlots.any(
-        (user) => user != null && user['id'] == widget.currentUser.id,
-      );
+    (user) => user != null && user['id'] == widget.currentUser.id,
+  );
 
   bool get amITheOwner => widget.currentUser.id == widget.ownerId;
 
@@ -130,17 +127,18 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
 
     // 🛑 [FIX]: ปิด Peer Connection ทีละตัว
     for (var pc in _peerConnections.values) {
-      if (pc.iceConnectionState != RTCIceConnectionState.RTCIceConnectionStateClosed) {
+      if (pc.iceConnectionState !=
+          RTCIceConnectionState.RTCIceConnectionStateClosed) {
         await pc.close();
       }
     }
     _peerConnections.clear();
-    
+
     // 🛑 [FIX]: Dispose Renderer ทั้งหมด
     _remoteRenderers.forEach((key, renderer) => renderer.dispose());
     _remoteRenderers.clear();
   }
-  
+
   // 🆕 [WebRTC]: ฟังก์ชันช่วยในการสร้างและผูก Stream เข้ากับ Renderer
   Future<void> _ensureRemoteRenderer(int userId, MediaStream stream) async {
     if (!_remoteRenderers.containsKey(userId)) {
@@ -177,12 +175,12 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
       await _remoteRenderers[targetUserId]!.dispose();
       _remoteRenderers.remove(targetUserId);
     }
-    
+
     // ลบออกจาก Map Stream
     if (_remoteAudioStreams.containsKey(targetUserId)) {
-        setState(() {
-            _remoteAudioStreams.remove(targetUserId);
-        });
+      setState(() {
+        _remoteAudioStreams.remove(targetUserId);
+      });
     }
   }
 
@@ -194,7 +192,7 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
   Future<void> _fetchClubMembers() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/clubs/${widget.clubId}/members'),
+        Uri.parse('${AppConstants.baseUrl}/clubs/${widget.clubId}/members'),
       );
       if (!mounted) return;
 
@@ -212,7 +210,9 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
         if (ownerMember != null && stageSlots[0] == null) {
           stageSlots[0] = {
             "name": ownerMember['name'],
-            "image": ownerMember['image'] ?? "https://i.pravatar.cc/150?img=${widget.ownerId}",
+            "image":
+                ownerMember['image'] ??
+                "https://i.pravatar.cc/150?img=${widget.ownerId}",
             "id": widget.ownerId,
           };
         }
@@ -222,17 +222,21 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
           _memberCount = _allMembers.length;
         });
       } else {
-        _showSnackbar("Failed to load club members: ${response.statusCode}", isError: true);
+        _showSnackbar(
+          "Failed to load club members: ${response.statusCode}",
+          isError: true,
+        );
       }
     } catch (e) {
-      if (mounted) _showSnackbar("Network Error fetching members: $e", isError: true);
+      if (mounted)
+        _showSnackbar("Network Error fetching members: $e", isError: true);
     }
   }
 
   Future<void> _fetchClubDetails() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/clubs/${widget.clubId}'),
+        Uri.parse('${AppConstants.baseUrl}/clubs/${widget.clubId}'),
       );
 
       if (!mounted) return;
@@ -306,7 +310,9 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
       });
 
       if (stream == null) {
-        throw Exception("getUserMedia returned null stream. Permission denied or device error.");
+        throw Exception(
+          "getUserMedia returned null stream. Permission denied or device error.",
+        );
       }
 
       setState(() {
@@ -333,7 +339,6 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
       final targetUserId = member['id'] as int;
 
       if (targetUserId != widget.currentUser.id) {
-
         // 1. สร้าง Peer Connection
         final peer = await _createPeerConnection(targetUserId);
         _peerConnections[targetUserId] = peer;
@@ -371,17 +376,16 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
         });
       }
     };
-    
+
     // ⚠️ [FIX]: ตรวจสอบ Ice Connection Status เพื่อล้าง PC เมื่อหลุด
     pc.onIceConnectionState = (state) {
-        if (state == RTCIceConnectionState.RTCIceConnectionStateDisconnected ||
-            state == RTCIceConnectionState.RTCIceConnectionStateFailed ||
-            state == RTCIceConnectionState.RTCIceConnectionStateClosed) {
-            print("ICE Connection to $targetUserId State: $state. Cleaning up.");
-            _closePeerConnection(targetUserId);
-        }
+      if (state == RTCIceConnectionState.RTCIceConnectionStateDisconnected ||
+          state == RTCIceConnectionState.RTCIceConnectionStateFailed ||
+          state == RTCIceConnectionState.RTCIceConnectionStateClosed) {
+        print("ICE Connection to $targetUserId State: $state. Cleaning up.");
+        _closePeerConnection(targetUserId);
+      }
     };
-
 
     // 2. Track Listener: สำหรับผู้ฟัง เมื่อได้รับ Track เสียงจากผู้พูด
     pc.onTrack = (RTCTrackEvent event) {
@@ -397,14 +401,16 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
     return pc;
   }
 
-// ⚠️ [WebRTC] ฟังก์ชันจัดการ WebRTC Signaling Events (Offer/Answer/Candidate)
+  // ⚠️ [WebRTC] ฟังก์ชันจัดการ WebRTC Signaling Events (Offer/Answer/Candidate)
   void _handleWebRTCEvent(Map<String, dynamic> event) async {
     final webrtcEvent = event['webrtcEvent'];
     final senderId = event['senderId'] as int;
 
     // 1. ตรวจสอบว่า Connection นี้ถูกปิดไปแล้วหรือยัง
     final existingPc = _peerConnections[senderId];
-    if (existingPc != null && existingPc.iceConnectionState == RTCIceConnectionState.RTCIceConnectionStateClosed) {
+    if (existingPc != null &&
+        existingPc.iceConnectionState ==
+            RTCIceConnectionState.RTCIceConnectionStateClosed) {
       print("Ignoring WebRTC event: Connection with $senderId is closed.");
       return;
     }
@@ -433,7 +439,6 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
         'targetUserId': senderId,
         'answer': answer.toMap(),
       });
-
     } else if (webrtcEvent == 'answer') {
       // 2. เราเป็นผู้พูด (Speaker) ได้รับ Answer จาก Listener/Speaker
       final answer = RTCSessionDescription(
@@ -444,7 +449,6 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
       if (pc != null) {
         await pc.setRemoteDescription(answer);
       }
-
     } else if (webrtcEvent == 'candidate') {
       // 3. ได้รับ ICE Candidate
       final candidate = RTCIceCandidate(
@@ -461,7 +465,9 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
 
   // ⚠️ [FIXED] แก้ไข Logic การฟัง Event
   void _listenClubEvents() {
-    _clubStreamSubscription = SocketService().messageStream.listen((event) async {
+    _clubStreamSubscription = SocketService().messageStream.listen((
+      event,
+    ) async {
       if (!mounted) return;
 
       final messageContent = event['message'];
@@ -472,8 +478,7 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
       }
       // 2. Club Expired/Closed Event
       else if (messageContent != null && messageContent is String) {
-        final normalizedMessage =
-            messageContent.toLowerCase();
+        final normalizedMessage = messageContent.toLowerCase();
 
         if (normalizedMessage.contains('was manually ended') ||
             normalizedMessage.contains('has expired')) {
@@ -503,10 +508,11 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
   void _handleStageUpdate(Map<String, dynamic> event) {
     final List<dynamic> receivedSlots = event['stageSlots'];
 
-    final newStageSlots = receivedSlots.map((slot) {
-      if (slot == null) return null;
-      return Map<String, dynamic>.from(slot);
-    }).toList();
+    final newStageSlots =
+        receivedSlots.map((slot) {
+          if (slot == null) return null;
+          return Map<String, dynamic>.from(slot);
+        }).toList();
 
     setState(() {
       stageSlots = newStageSlots;
@@ -521,7 +527,7 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
   Future<void> _endClub() async {
     try {
       final response = await http.delete(
-        Uri.parse('$baseUrl/clubs/${widget.clubId}'),
+        Uri.parse('${AppConstants.baseUrl}/clubs/${widget.clubId}'),
       );
 
       if (!mounted) return;
@@ -573,14 +579,17 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
       } else {
         newSlotData = {
           "name": widget.currentUser.displayName,
-          "image": widget.currentUser.image ??
+          "image":
+              widget.currentUser.image ??
               "https://i.pravatar.cc/150?img=${widget.currentUser.id + 10}",
           "id": widget.currentUser.id,
         };
         // 🆕 [WebRTC]: เริ่ม Audio Stream ทันทีที่ขึ้น Stage
         await _startLocalStream();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("You are now on the stage! Tap again to leave.")),
+          const SnackBar(
+            content: Text("You are now on the stage! Tap again to leave."),
+          ),
         );
       }
     }
@@ -600,7 +609,9 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
   void _toggleMute() {
     if (_localAudioStream != null) {
       // 🛑 [FIXED]: ใช้ firstWhereOrNull และ check null
-      final audioTrack = _localAudioStream!.getAudioTracks().firstWhereOrNull((track) => track.kind == 'audio');
+      final audioTrack = _localAudioStream!.getAudioTracks().firstWhereOrNull(
+        (track) => track.kind == 'audio',
+      );
 
       if (audioTrack != null) {
         audioTrack.enabled = !_isMuted;
@@ -775,8 +786,12 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
                         user['image'],
                         fit: BoxFit.cover,
                         // แสดง Icon แทนถ้าโหลดรูปไม่ได้
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(Icons.person, size: 40, color: Colors.grey),
+                        errorBuilder:
+                            (context, error, stackTrace) => const Icon(
+                              Icons.person,
+                              size: 40,
+                              color: Colors.grey,
+                            ),
                       ),
                     )
                     : const Icon(Icons.add, size: 40, color: Colors.grey),
@@ -804,10 +819,12 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
               padding: const EdgeInsets.only(top: 4),
               child: Icon(
                 isMe && _isMuted
-                    ? Icons.mic_off // เราถูก Mute
+                    ? Icons
+                        .mic_off // เราถูก Mute
                     : hasAudioStream || isMe
-                        ? Icons.mic // Speaker/เรากำลังพูด
-                        : Icons.mic_none, // Speaker แต่ยังไม่มี Stream มาถึง
+                    ? Icons
+                        .mic // Speaker/เรากำลังพูด
+                    : Icons.mic_none, // Speaker แต่ยังไม่มี Stream มาถึง
                 size: 14,
                 color: isMe && _isMuted ? Colors.redAccent : Colors.grey,
               ),
@@ -825,7 +842,6 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
 
     // ใช้ _listeners.length แทนการคำนวณจาก _memberCount
     final listenerCount = _listeners.length;
-
 
     if (_isLoading) {
       return Scaffold(
@@ -928,7 +944,8 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
                           ),
                       itemCount: _listeners.length, // ใช้จำนวน Listener ตัวจริง
                       itemBuilder: (context, index) {
-                        final user = _listeners[index]; // ใช้ข้อมูล Listener ตัวจริง
+                        final user =
+                            _listeners[index]; // ใช้ข้อมูล Listener ตัวจริง
                         return Column(
                           children: [
                             Container(
@@ -940,7 +957,8 @@ class _ClubRoomScreenState extends State<ClubRoomScreen> {
                                 image: DecorationImage(
                                   image: NetworkImage(
                                     // ใช้ image จากข้อมูลจริง ถ้าไม่มีให้ fallback
-                                    user['image'] ?? "https://i.pravatar.cc/150?img=${user['id']}",
+                                    user['image'] ??
+                                        "https://i.pravatar.cc/150?img=${user['id']}",
                                   ),
                                   fit: BoxFit.cover,
                                 ),

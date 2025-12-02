@@ -31,7 +31,7 @@ class _TopUpScreenState extends State<TopUpScreen> {
     try {
       // 1. ยิง API ไปเติมเงิน
       final response = await http.post(
-        Uri.parse('$baseUrl/topup'),
+        Uri.parse('${AppConstants.baseUrl}/topup'),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"user_id": widget.currentUser.id, "amount": amount}),
       );

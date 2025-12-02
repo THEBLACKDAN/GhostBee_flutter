@@ -39,7 +39,7 @@ class _VipScreenState extends State<VipScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/buy-vip'),
+        Uri.parse('${AppConstants.baseUrl}/buy-vip'),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "user_id": widget.currentUser.id,

@@ -46,7 +46,7 @@ class _TopupStatusScreenState extends State<TopupStatusScreen> {
 
     try {
       final response = await http.get(
-        Uri.parse("$baseUrl/payment/status/${widget.historyId}"),
+        Uri.parse("${AppConstants.baseUrl}/payment/status/${widget.historyId}"),
       );
 
       if (response.statusCode == 200) {

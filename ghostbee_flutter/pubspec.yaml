@@ -41,7 +41,7 @@ dependencies:
   flutter_webrtc: ^1.2.1
   emoji_picker_flutter: ^1.6.1
   image_picker: ^1.2.1
-  image_gallery_saver: ^2.0.0 # หรือเวอร์ชันล่าสุด
+  image_gallery_saver_plus: ^4.0.1
   permission_handler: ^11.0.1 # หรือเวอร์ชันล่าสุด
   font_awesome_flutter: ^10.9.1
   lottie: ^3.3.1

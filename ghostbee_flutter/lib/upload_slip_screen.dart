@@ -5,9 +5,9 @@ import 'dart:ui' as ui; // ใช้สำหรับ ImageByteFormat
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:ghostbee_flutter/TopupStatusScreen.dart';
+import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
-import 'package:image_gallery_saver/image_gallery_saver.dart'; // 🌟 ใช้ตัวนี้
 import 'package:permission_handler/permission_handler.dart'; // 🌟 ใช้ตัวนี้
 import 'dart:convert';
 import 'dart:typed_data';
@@ -135,7 +135,7 @@ class _UploadSlipScreenState extends State<UploadSlipScreen> {
         final pngBytes = byteData!.buffer.asUint8List();
 
         // 3. บันทึกภาพ
-        final result = await ImageGallerySaver.saveImage(
+        final result = await ImageGallerySaverPlus.saveImage(
           pngBytes,
           name: "PromptPay_Topup_${historyId}",
         );

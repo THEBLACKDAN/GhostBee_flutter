@@ -6,13 +6,20 @@ class ConfigService {
 
   static Future<void> load() async {
     final url =
-        "https://raw.githubusercontent.com/THEBLACKDAN/GhostBee_flutter/refs/heads/main/ghostbee_flutter/config.json?token=GHSAT0AAAAAADQNU5ULQ75NTYX4V2ANWCFK2JONNUQ";
+        "https://raw.githubusercontent.com/THEBLACKDAN/GhostBee_flutter/refs/heads/main/ghostbee_flutter/config.json";
 
     final response = await http.get(Uri.parse(url));
 
     if (response.statusCode == 200) {
       final jsonData = jsonDecode(response.body);
-      baseUrl = jsonData["api_base_url"];
+      String loadedUrl = jsonData["api_base_url"];
+      
+      // ✨ เพิ่ม Logic ตัด / ท้าย URL
+      if (loadedUrl.endsWith('/')) {
+        loadedUrl = loadedUrl.substring(0, loadedUrl.length - 1);
+      }
+      
+      baseUrl = loadedUrl; // เก็บค่าที่ถูกตัดแล้ว
       print("Loaded API URL: $baseUrl");
     } else {
       throw Exception("Failed to load config");

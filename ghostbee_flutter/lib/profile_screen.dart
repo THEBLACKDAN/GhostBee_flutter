@@ -30,6 +30,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int _friendsCount = 0;
   bool _isLoadingStats = true;
 
+  String _userBio = '';
+
   String _joinedDate = 'N/A'; // 🆕 ตัวแปรสำหรับเก็บวันที่สมัคร
 
   @override
@@ -109,6 +111,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 userData['display_name'] ?? widget.user.displayName;
             widget.user.image = userData['image'] ?? widget.user.image;
 
+            _userBio = userData['bio'] ?? '';
+
             // 🆕 อัปเดตวันที่สมัคร (สมมติว่า API ส่ง created_at มา)
             if (userData['created_at'] != null) {
               try {
@@ -136,57 +140,104 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ? widget.user.image
               : "",
     );
+    // 🌟 Controller สำหรับ Bio
+    final bioController = TextEditingController(text: _userBio); 
 
     showDialog(
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: const Text("Edit Profile"),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 1. แก้ไขชื่อ
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: "Display Name"),
-                ),
-                const SizedBox(height: 15),
-
-                // 2. แก้ไขรูป (VIP Only)
-                TextField(
-                  controller: imageController,
-                  enabled: widget.user.isVip,
-                  decoration: InputDecoration(
-                    labelText: "Image URL (VIP Only)",
-                    hintText: "https://example.com/my-photo.jpg",
-                    suffixIcon:
-                        widget.user.isVip
-                            ? const Icon(
-                              Icons.check_circle,
-                              color: Colors.green,
-                            )
-                            : const Icon(Icons.lock, color: Colors.grey),
-                    border: const OutlineInputBorder(),
-                    filled: !widget.user.isVip,
-                    fillColor: Colors.grey[200],
-                  ),
-                ),
-                if (!widget.user.isVip)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(
-                      "สมัคร VIP เพื่อเปลี่ยนรูปโปรไฟล์",
-                      style: TextStyle(color: Colors.red[300], fontSize: 12),
+            title: const Text(
+              "แก้ไขโปรไฟล์ส่วนตัว", // ✨ หัวข้อภาษาไทย
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            // 🌟 ใช้ SingleChildScrollView เพื่อป้องกัน Overflow
+            content: SingleChildScrollView( 
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. แก้ไขชื่อ (Display Name)
+                  const Text("ชื่อที่แสดง", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  TextField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      hintText: "ชื่อแสดงตัวตนของคุณ",
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
                   ),
-              ],
+                  const SizedBox(height: 20),
+
+                  // 🌟 NEW: ช่องแก้ไข Bio
+                  const Text(
+                    "แนะนำตัว (Bio)",
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  TextField(
+                    controller: bioController,
+                    maxLength: 500, // จำกัด 500 ตัวอักษร
+                    maxLines: 4,
+                    minLines: 1,
+                    keyboardType: TextInputType.multiline,
+                    decoration: InputDecoration(
+                      hintText: "สูงสุด 500 ตัวอักษร",
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      contentPadding: const EdgeInsets.all(12),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // 2. แก้ไขรูป (VIP Only)
+                  Row(
+                    children: [
+                      const Text(
+                        "ลิงก์รูปโปรไฟล์ (VIP Exclusive)", // ✨ ข้อความภาษาไทย
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      const Spacer(),
+                      if (widget.user.isVip)
+                        const Icon(Icons.star, color: Colors.amber, size: 16),
+                    ],
+                  ),
+                  TextField(
+                    controller: imageController,
+                    enabled: widget.user.isVip,
+                    decoration: InputDecoration(
+                      hintText: "https://example.com/my-photo.jpg",
+                      suffixIcon:
+                          widget.user.isVip
+                              ? const Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                              )
+                              : const Icon(Icons.lock, color: Colors.grey),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      filled: !widget.user.isVip,
+                      fillColor: Colors.grey[100], // ✨ ปรับสีพื้นหลัง
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                  ),
+                  if (!widget.user.isVip)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        "สมัคร VIP เพื่อเปลี่ยนรูปโปรไฟล์ของคุณ", // ✨ ข้อความแจ้ง VIP
+                        style: TextStyle(color: Colors.red[400], fontSize: 12),
+                      ),
+                    ),
+                ],
+              ),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text("Cancel"),
+                child: const Text(
+                  "ยกเลิก",
+                  style: TextStyle(color: Colors.grey),
+                ),
               ),
-              ElevatedButton(
+              ElevatedButton.icon(
                 onPressed: () async {
                   // ยิง API อัปเดต
                   try {
@@ -198,6 +249,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       body: jsonEncode({
                         "display_name": nameController.text,
                         "image": imageController.text,
+                        "bio": bioController.text.trim(),
                       }),
                     );
 
@@ -207,7 +259,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     print(e);
                   }
                 },
-                child: const Text("Save"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber, // ✨ สีปุ่มบันทึก
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                icon: const Icon(Icons.save),
+                label: const Text("บันทึก"),
               ),
             ],
           ),
@@ -367,18 +425,78 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
 
                 // ปุ่มแก้ไข (Text Button เล็กๆ)
-                TextButton.icon(
-                  onPressed: _showEditProfileDialog,
-                  icon: const Icon(
-                    Icons.edit_note,
-                    size: 16,
-                    color: Colors.grey,
-                  ),
-                  label: const Text(
-                    "Edit Profile",
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                // profile_screen.dart: ภายใน build method (ใน Container ที่มี color: Colors.white)
+
+// ... (โค้ดแสดงชื่อและ VIP Badge เดิม)
+
+                // ปุ่มแก้ไข (Text Button เล็กๆ)
+                Center( // จัดปุ่ม Edit ให้อยู่ตรงกลาง
+                  child: TextButton.icon(
+                    onPressed: _showEditProfileDialog,
+                    icon: const Icon(
+                      Icons.edit_note,
+                      size: 16,
+                      color: Colors.amber, // ✨ เปลี่ยนสีไอคอนให้เป็นสีหลัก
+                    ),
+                    label: const Text(
+                      "แก้ไขโปรไฟล์", // ✨ เปลี่ยนเป็นภาษาไทย
+                      style: TextStyle(
+                        color: Colors.amber, // ✨ เปลี่ยนสีข้อความ
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold, // ✨ เพิ่มความหนา
+                      ),
+                    ),
                   ),
                 ),
+
+                // 🌟 NEW: ส่วนแสดง Bio ที่ออกแบบใหม่
+                const SizedBox(height: 15),
+                if (_userBio.isNotEmpty)
+                  Center(
+                    child: Container(
+                      constraints: const BoxConstraints(maxWidth: 300), // จำกัดความกว้าง
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.amber[50], // ✨ สีพื้นหลังอ่อนๆ
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.amber.withOpacity(0.5),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        _userBio,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.black87, // ✨ เปลี่ยนเป็นสีดำเข้ม
+                          fontStyle: FontStyle.italic,
+                          height: 1.4, // ✨ เพิ่มระยะห่างบรรทัด
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Center(
+                    // กรณีไม่มี Bio
+                    child: TextButton(
+                      onPressed: _showEditProfileDialog,
+                      child: Text(
+                        "✨ เพิ่ม Bio แนะนำตัวสิ!", // ✨ ข้อความกระตุ้น
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ),
+                  ),
+                
+                const SizedBox(height: 20), // ✨ เพิ่มระยะห่างด้านล่าง
+                
+// ... (Stats (Posts and Friends) เดิม)
 
                 const SizedBox(height: 10),
 

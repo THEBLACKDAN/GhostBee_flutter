@@ -10,18 +10,24 @@ import 'package:ghostbee_flutter/profile_screen.dart';
 import 'package:ghostbee_flutter/socket_service.dart';
 import 'package:http/http.dart' as http;
 import 'constants.dart';
-import 'login_screen.dart'; // หน้า Login (หน้าแรกสุด)
-import 'club_room_screen.dart'; // หน้าห้อง Club
-import 'package:shared_preferences/shared_preferences.dart'; // <<< Import ใหม่
+import 'login_screen.dart'; 
+import 'club_room_screen.dart'; 
+import 'package:shared_preferences/shared_preferences.dart'; 
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // โหลด URL จาก GitHub
-  await ConfigService.load();
-
-  // อัปเดต baseUrl ให้ทั้งระบบ
-  AppConstants.baseUrl = ConfigService.baseUrl;
+  // 🌟 โหลด URL จาก GitHub (Initial Load)
+  final initialConfig = await ConfigService.fetchLatestConfig();
+  if (initialConfig != null) {
+    final initialUrl = initialConfig["api_base_url"] as String;
+    final initialVersion = initialConfig["config_version"] ?? 0;
+    ConfigService.setBaseUrl(initialUrl, initialVersion);
+  } else {
+    // ⚠️ ถ้าโหลด Config ครั้งแรกไม่สำเร็จ (เช่น ไม่มีเน็ต) BaseUrl จะเป็น ""
+    // การจัดการ Error นี้จะถูกส่งต่อไปที่ _checkLoginStatus
+  }
 
   runApp(const BeeTalkApp());
 }
@@ -44,18 +50,89 @@ class _AuthWrapperState extends State<AuthWrapper> {
     _checkLoginStatus();
   }
 
+  // ✨ NEW: เมธอดสำหรับแสดง Pop-up แจ้งเตือน
+  void _showUpdatePopup(BuildContext context, Map<String, dynamic> latestConfig) {
+    final newUrl = latestConfig["api_base_url"] as String;
+    final newVersion = latestConfig.containsKey("config_version") 
+        ? latestConfig["config_version"].toString() 
+        : "N/A";
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // บังคับให้เลือกปุ่ม
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.info, color: Colors.amber),
+            SizedBox(width: 10),
+            Text("อัปเดตเซิร์ฟเวอร์ด่วน!"), 
+          ],
+        ),
+        content: Text(
+          "เราตรวจพบ Config เวอร์ชันใหม่ (v$newVersion) ซึ่งแก้ไขปัญหาการเชื่อมต่อ\nกรุณากด 'อัปเดต' เพื่อเชื่อมต่อเซิร์ฟเวอร์ใหม่และใช้งานต่อ",
+        ),
+        actions: [
+          // ปุ่ม "ข้าม"
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              // ถ้าผู้ใช้เลือกข้าม ให้นำไปหน้า Login
+              if (mounted) {
+                setState(() => _initialScreen = const LoginScreen());
+              }
+            },
+            child: const Text("ข้าม", style: TextStyle(color: Colors.grey)),
+          ),
+          
+          // ปุ่ม "อัปเดต"
+          ElevatedButton(
+            onPressed: () {
+              // 1. เซ็ตค่า Base URL ใหม่
+              final int versionInt = latestConfig["config_version"] ?? ConfigService.currentConfigVersion;
+              ConfigService.setBaseUrl(newUrl, versionInt); 
+              
+              Navigator.pop(ctx);
+              
+              // 2. ลองเช็คสถานะการล็อกอินซ้ำอีกครั้งด้วย URL ใหม่
+              _checkLoginStatus(); 
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text("อัปเดต", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+
   Future<void> _checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getInt('userId');
 
     if (!mounted) return;
+    
+    // ⚠️ Safety Check: หาก BaseUrl ยังว่าง (กรณี Config Load ครั้งแรกไม่สำเร็จ)
+    // ให้พยายามโหลด Config ล่าสุดอีกครั้งเพื่อป้องกัน Connection Error
+    if (AppConstants.baseUrl.isEmpty) {
+        final latestConfig = await ConfigService.fetchLatestConfig();
+        if (latestConfig != null) {
+            final initialUrl = latestConfig["api_base_url"] as String;
+            final initialVersion = latestConfig["config_version"] ?? 0;
+            ConfigService.setBaseUrl(initialUrl, initialVersion);
+        }
+    }
+
 
     if (userId != null) {
       // 1. ถ้ามี ID (เคย Login แล้ว) -> ดึงข้อมูล User ที่สมบูรณ์
       try {
         final response = await http.get(
           Uri.parse('${AppConstants.baseUrl}/user/$userId'),
-        ); // <<< เรียก API ใหม่
+        ); 
 
         if (response.statusCode == 200) {
           // ดึงข้อมูล User และสร้าง User Object ที่สมบูรณ์
@@ -79,8 +156,24 @@ class _AuthWrapperState extends State<AuthWrapper> {
           }
         }
       } catch (e) {
-        // 3. Connection Error/Server Down -> กลับไป Login (หรือแสดง Error)
-        print("Error during auto-login fetch: $e");
+        // 3. Connection Error/Server Down -> ลองดึง Config ล่าสุดมาเปรียบเทียบ
+        print("Error during auto-login fetch: $e. Checking for config update...");
+        
+        final latestConfig = await ConfigService.fetchLatestConfig();
+        
+        if (latestConfig != null) {
+          final int newVersion = latestConfig["config_version"] ?? 0;
+          
+          // 🌟 NEW: ถ้าเวอร์ชันใหม่กว่า (แสดงว่ามีการอัปเดต URL) ให้แสดง Pop-up
+          if (newVersion > ConfigService.currentConfigVersion) {
+            if (mounted) {
+              _showUpdatePopup(context, latestConfig);
+            }
+            return; // หยุดการทำงานชั่วคราว รอผู้ใช้เลือกใน Pop-up
+          }
+        }
+        
+        // ถ้าไม่มี Config ใหม่ หรือโหลด Config ไม่ได้ ให้ไปหน้า Login ปกติ
         if (mounted) {
           setState(() {
             _initialScreen = const LoginScreen();
@@ -125,7 +218,7 @@ class BeeTalkApp extends StatelessWidget {
 }
 
 // ---------------------------------------------------------
-// MainScreen: หน้าหลักที่มี Bottom Navigation
+// MainScreen: หน้าหลักที่มี Bottom Navigation (โค้ดเดิม)
 // ---------------------------------------------------------
 class MainScreen extends StatefulWidget {
   final User user; // รับข้อมูลผู้ใช้ที่ Login เข้ามา
@@ -202,7 +295,7 @@ class _MainScreenState extends State<MainScreen> {
 }
 
 // ---------------------------------------------------------
-// 1. Chat Tab (Mockup)
+// 1. Chat Tab (Mockup) (โค้ดเดิม)
 // ---------------------------------------------------------
 // แก้ไขคลาส ChatPlaceholder เดิม ให้กลายเป็น State
 class ChatPlaceholder extends StatefulWidget {
@@ -311,7 +404,7 @@ class _ChatPlaceholderState extends State<ChatPlaceholder> {
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
 
-            // ✨✨✨ เพิ่มส่วนนี้: จุดแดงแจ้งเตือน ✨✨✨
+            // จุดแดงแจ้งเตือน
             trailing:
                 unread > 0
                     ? Container(
@@ -335,7 +428,6 @@ class _ChatPlaceholderState extends State<ChatPlaceholder> {
                       color: Colors.grey,
                     ),
 
-            // ✨✨✨ จบส่วนแก้ไข ✨✨✨
             onTap: () async {
               // กดแล้วไปหน้า ChatScreen
               await Navigator.push(

@@ -386,37 +386,42 @@ app.get('/user/stats/:userId', (req, res) => {
 });
 
 app.put('/user/:id', async (req, res) => {
-    const userId = req.params.id;
-    const { display_name, image } = req.body;
+    const userId = req.params.id;
+    // ✨ NEW: เพิ่ม bio เข้าไปใน Destructuring
+    const { display_name, image, bio } = req.body; 
 
-    try {
-        // 1. เช็คก่อนว่าเป็น VIP ไหม (เพื่อความปลอดภัยกันคนยิง API ตรงๆ)
-        const [users] = await db.promise().query('SELECT is_vip FROM users WHERE id = ?', [userId]);
-        if (users.length === 0) return res.status(404).json({ message: 'User not found' });
-        
-        const isVip = (users[0].is_vip === 1);
+    try {
+        // 1. เช็คก่อนว่าเป็น VIP ไหม (เพื่อความปลอดภัยกันคนยิง API ตรงๆ)
+        const [users] = await db.promise().query('SELECT is_vip FROM users WHERE id = ?', [userId]);
+        if (users.length === 0) return res.status(404).json({ message: 'User not found' });
+        
+        const isVip = (users[0].is_vip === 1);
 
-        // 2. เตรียมข้อมูลอัปเดต
-        let sql = 'UPDATE users SET display_name = ?';
-        let params = [display_name];
+        // 2. เตรียมข้อมูลอัปเดต: ต้องใส่ bio เข้าไป
+        // ✨ แก้ไข: เริ่มต้น SQL ด้วย display_name และ bio
+        let sql = 'UPDATE users SET display_name = ?, bio = ?'; 
+        let params = [display_name, bio]; // ✨ เพิ่ม bio ใน parameters
 
-        // 3. ถ้าเป็น VIP ถึงจะยอมให้อัปเดต image
-        if (isVip && image) {
-            sql += ', image = ?';
-            params.push(image);
+        // 3. ถ้าเป็น VIP ถึงจะยอมให้อัปเดต image
+        if (isVip && image) {
+            sql += ', image = ?';
+            params.push(image);
+        } else if (!isVip && image) {
+             // 💡 ถ้าไม่ใช่ VIP แต่พยายามส่ง image มา, ให้ clear image เป็น NULL/empty string แทนการอัพเดท
+             sql += ', image = NULL';
         }
 
-        sql += ' WHERE id = ?';
-        params.push(userId);
+        sql += ' WHERE id = ?';
+        params.push(userId);
 
-        await db.promise().query(sql, params);
+        await db.promise().query(sql, params);
 
-        res.json({ message: 'Profile updated successfully' });
+        res.json({ message: 'Profile updated successfully' });
 
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error' });
-    }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
 });
 
 // API: ดึงประวัติข้อความ

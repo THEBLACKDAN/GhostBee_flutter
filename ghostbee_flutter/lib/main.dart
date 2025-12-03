@@ -1,3 +1,5 @@
+// main.dart
+
 import 'dart:convert';
 import './config_service.dart';
 import './constants.dart';
@@ -10,24 +12,32 @@ import 'package:ghostbee_flutter/profile_screen.dart';
 import 'package:ghostbee_flutter/socket_service.dart';
 import 'package:http/http.dart' as http;
 import 'constants.dart';
-import 'login_screen.dart'; 
-import 'club_room_screen.dart'; 
+import 'login_screen.dart'; // หน้า Login (หน้าแรกสุด)
+import 'club_room_screen.dart'; // หน้าห้อง Club
 import 'package:shared_preferences/shared_preferences.dart'; 
-
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 🌟 โหลด URL จาก GitHub (Initial Load)
-  final initialConfig = await ConfigService.fetchLatestConfig();
-  if (initialConfig != null) {
-    final initialUrl = initialConfig["api_base_url"] as String;
-    final initialVersion = initialConfig["config_version"] ?? 0;
-    ConfigService.setBaseUrl(initialUrl, initialVersion);
-  } else {
-    // ⚠️ ถ้าโหลด Config ครั้งแรกไม่สำเร็จ (เช่น ไม่มีเน็ต) BaseUrl จะเป็น ""
-    // การจัดการ Error นี้จะถูกส่งต่อไปที่ _checkLoginStatus
+  // 1. โหลด Config ที่บันทึกไว้ในเครื่อง (Saved Config)
+  await ConfigService.loadSavedConfig(); 
+
+  // 2. ลองดึง Config ล่าสุดจาก GitHub
+  final remoteConfig = await ConfigService.fetchLatestConfig();
+
+  if (remoteConfig != null) {
+    final remoteUrl = remoteConfig["api_base_url"] as String;
+    final remoteVersion = remoteConfig["config_version"] ?? 0;
+
+    // 3. ถ้า Config จาก Remote ใหม่กว่า Config ที่แอปฯ โหลดมา (จาก SharedPrefs/Default 0)
+    if (remoteVersion > ConfigService.currentConfigVersion) {
+      // 4. อัปเดตไปใช้ Config ใหม่ทันที (เพื่อใช้ในการเชื่อมต่อครั้งแรก)
+      await ConfigService.setBaseUrl(remoteUrl, remoteVersion);
+    } 
   }
+  
+  // 5. อัปเดต baseUrl ให้ทั้งระบบ
+  AppConstants.baseUrl = ConfigService.baseUrl;
 
   runApp(const BeeTalkApp());
 }
@@ -77,7 +87,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              // ถ้าผู้ใช้เลือกข้าม ให้นำไปหน้า Login
+              // ถ้าผู้ใช้เลือกข้าม ให้นำไปหน้า Login 
               if (mounted) {
                 setState(() => _initialScreen = const LoginScreen());
               }
@@ -87,10 +97,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
           
           // ปุ่ม "อัปเดต"
           ElevatedButton(
-            onPressed: () {
-              // 1. เซ็ตค่า Base URL ใหม่
+            onPressed: () async { // 🌟 ต้องเป็น async เพื่อ await setBaseUrl
+              // 1. เซ็ตค่า Base URL ใหม่ และบันทึกใน SharedPrefs
               final int versionInt = latestConfig["config_version"] ?? ConfigService.currentConfigVersion;
-              ConfigService.setBaseUrl(newUrl, versionInt); 
+              await ConfigService.setBaseUrl(newUrl, versionInt); 
               
               Navigator.pop(ctx);
               
@@ -108,7 +118,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
     );
   }
 
-
   Future<void> _checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getInt('userId');
@@ -116,13 +125,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (!mounted) return;
     
     // ⚠️ Safety Check: หาก BaseUrl ยังว่าง (กรณี Config Load ครั้งแรกไม่สำเร็จ)
-    // ให้พยายามโหลด Config ล่าสุดอีกครั้งเพื่อป้องกัน Connection Error
+    // ให้พยายามโหลด Config ล่าสุดอีกครั้ง
     if (AppConstants.baseUrl.isEmpty) {
         final latestConfig = await ConfigService.fetchLatestConfig();
         if (latestConfig != null) {
             final initialUrl = latestConfig["api_base_url"] as String;
             final initialVersion = latestConfig["config_version"] ?? 0;
-            ConfigService.setBaseUrl(initialUrl, initialVersion);
+            // ใช้ setBaseUrl เพื่อบันทึกค่าแรกที่ดึงมาได้
+            await ConfigService.setBaseUrl(initialUrl, initialVersion);
         }
     }
 
@@ -132,7 +142,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       try {
         final response = await http.get(
           Uri.parse('${AppConstants.baseUrl}/user/$userId'),
-        ); 
+        ); // <<< เรียก API ใหม่
 
         if (response.statusCode == 200) {
           // ดึงข้อมูล User และสร้าง User Object ที่สมบูรณ์
@@ -159,13 +169,15 @@ class _AuthWrapperState extends State<AuthWrapper> {
         // 3. Connection Error/Server Down -> ลองดึง Config ล่าสุดมาเปรียบเทียบ
         print("Error during auto-login fetch: $e. Checking for config update...");
         
+        // 🌟 Fix: ดึง Config ล่าสุด
         final latestConfig = await ConfigService.fetchLatestConfig();
         
         if (latestConfig != null) {
           final int newVersion = latestConfig["config_version"] ?? 0;
           
-          // 🌟 NEW: ถ้าเวอร์ชันใหม่กว่า (แสดงว่ามีการอัปเดต URL) ให้แสดง Pop-up
+          // 🌟 Fix: เปรียบเทียบ Remote Version กับ Config ที่บันทึกไว้ (currentConfigVersion)
           if (newVersion > ConfigService.currentConfigVersion) {
+            print("Config Update Found: Remote v$newVersion > Local v${ConfigService.currentConfigVersion}");
             if (mounted) {
               _showUpdatePopup(context, latestConfig);
             }
@@ -221,7 +233,7 @@ class BeeTalkApp extends StatelessWidget {
 // MainScreen: หน้าหลักที่มี Bottom Navigation (โค้ดเดิม)
 // ---------------------------------------------------------
 class MainScreen extends StatefulWidget {
-  final User user; // รับข้อมูลผู้ใช้ที่ Login เข้ามา
+  final User user; 
 
   const MainScreen({super.key, required this.user});
 
@@ -230,7 +242,7 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _selectedIndex = 1; // เริ่มต้นที่หน้า Look Around (Index 1)
+  int _selectedIndex = 1; 
 
   late List<Widget> _pages;
   final List<String> _titles = ["Chats", "Board", "Clubs", "Me"];
@@ -238,12 +250,11 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    // กำหนดหน้าจอต่างๆ และส่งข้อมูล user เข้าไปในหน้า Profile
     _pages = [
       ChatPlaceholder(user: widget.user),
       BoardScreen(currentUser: widget.user),
       ClubListScreen(currentUser: widget.user),
-      ProfileScreen(user: widget.user), // ส่ง user ไปแสดงผล
+      ProfileScreen(user: widget.user), 
     ];
   }
 
@@ -261,13 +272,6 @@ class _MainScreenState extends State<MainScreen> {
           _titles[_selectedIndex],
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        // actions: [
-        //   IconButton(onPressed: () {}, icon: const Icon(Icons.search)),
-        //   if (_selectedIndex == 1) // ปุ่ม Filter เฉพาะหน้า Look Around
-        //     IconButton(onPressed: () {}, icon: const Icon(Icons.filter_list)),
-        //   if (_selectedIndex == 0) // ปุ่ม + เฉพาะหน้า Chat
-        //     IconButton(onPressed: () {}, icon: const Icon(Icons.add)),
-        // ],
       ),
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
@@ -297,9 +301,8 @@ class _MainScreenState extends State<MainScreen> {
 // ---------------------------------------------------------
 // 1. Chat Tab (Mockup) (โค้ดเดิม)
 // ---------------------------------------------------------
-// แก้ไขคลาส ChatPlaceholder เดิม ให้กลายเป็น State
 class ChatPlaceholder extends StatefulWidget {
-  final User user; // รับ user เข้ามาด้วย เพื่อเอา ID ไปดึงเพื่อน
+  final User user; 
   const ChatPlaceholder({super.key, required this.user});
 
   @override
@@ -372,7 +375,6 @@ class _ChatPlaceholderState extends State<ChatPlaceholder> {
                       friend['gender'] == 'male'
                           ? Colors.blue[100]
                           : Colors.pink[100],
-                  // ถ้ามีรูปโปรไฟล์ก็โชว์ (เผื่อไว้)
                   backgroundImage:
                       friend['image'] != null &&
                               friend['image'].toString().startsWith('http')
@@ -390,7 +392,6 @@ class _ChatPlaceholderState extends State<ChatPlaceholder> {
                           )
                           : null,
                 ),
-                // (ถ้าอยากใส่ Online Dot ก็ใส่ตรงนี้ได้)
               ],
             ),
 
